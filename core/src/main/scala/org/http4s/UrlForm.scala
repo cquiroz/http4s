@@ -32,6 +32,9 @@ object UrlForm {
     if(values.get("").fold(false)(_.isEmpty)) new UrlForm(values - "")
     else new UrlForm(values)
 
+  def apply(values: (String, String)*): UrlForm =
+    UrlForm(values.groupBy(_._1).mapValues(_.map(_._2)))
+
   implicit def entityEncoder(implicit charset: Charset = Charset.`UTF-8`): EntityEncoder[UrlForm] =
     EntityEncoder.stringEncoder(charset)
       .contramap[UrlForm](encodeString(charset))
