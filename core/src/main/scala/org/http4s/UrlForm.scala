@@ -32,11 +32,10 @@ object UrlForm {
     if(values.get("").fold(false)(_.isEmpty)) new UrlForm(values - "")
     else new UrlForm(values)
 
-  def entityEncoder(charset: Charset): EntityEncoder[UrlForm] =
+  implicit def entityEncoder(implicit charset: Charset = Charset.`UTF-8`): EntityEncoder[UrlForm] =
     EntityEncoder.stringEncoder(charset)
       .contramap[UrlForm](encodeString(charset))
       .withContentType(`Content-Type`(MediaType.`application/x-www-form-urlencoded`, charset))
-
 
   implicit val entityDecoder: EntityDecoder[UrlForm] =
     EntityDecoder.decodeBy(MediaType.`application/x-www-form-urlencoded`){ m =>
