@@ -4,6 +4,7 @@ import scala.concurrent.Future
 
 import java.io.{StringReader, ByteArrayInputStream, FileWriter, File}
 import java.nio.charset.StandardCharsets
+import java.nio.ByteBuffer
 
 import cats._
 import fs2._
@@ -24,6 +25,12 @@ class EntityEncoderSpec extends Http4sSpec {
       writeToString(hello.getBytes(StandardCharsets.UTF_8)) must_== hello
     }
 
+    "render byte buffer" in {
+      val hello = "hello"
+      val bb = ByteBuffer.wrap(hello.getBytes(StandardCharsets.UTF_8))
+      writeToString(bb) must_== hello
+    }
+
     "render futures" in {
       import scala.concurrent.ExecutionContext.Implicits.global
       val hello = "Hello"
@@ -40,8 +47,19 @@ class EntityEncoderSpec extends Http4sSpec {
       writeToString(helloWorld) must_== "helloworld"
     }
 
+    "render bytebuffer processes" in {
+      val helloWorld = Stream(ByteBuffer.wrap("hello".getBytes(StandardCharsets.UTF_8)), ByteBuffer.wrap("world".getBytes(StandardCharsets.UTF_8)))
+      writeToString(helloWorld) must_== "helloworld"
+    }
+
     "render processes with chunked transfer encoding" in {
       implicitly[EntityEncoder[Stream[Task, String]]].headers.get(`Transfer-Encoding`) must beLike {
+        case Some(coding) => coding.hasChunked must beTrue
+      }
+    }
+
+    "render bytebuffer processes with chunked transfer encoding" in {
+      implicitly[EntityEncoder[Stream[Task, ByteBuffer]]].headers.get(`Transfer-Encoding`) must beLike {
         case Some(coding) => coding.hasChunked must beTrue
       }
     }
@@ -93,6 +111,7 @@ class EntityEncoderSpec extends Http4sSpec {
     "give the content type" in {
       EntityEncoder[String].contentType must_== Some(`Content-Type`(MediaType.`text/plain`, Charset.`UTF-8`))
       EntityEncoder[Array[Byte]].contentType must_== Some(`Content-Type`(MediaType.`application/octet-stream`))
+      EntityEncoder[ByteBuffer].contentType must_== Some(`Content-Type`(MediaType.`application/octet-stream`))
     }
 
     "work with local defined EntityEncoders" in {
