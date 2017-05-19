@@ -1,6 +1,7 @@
 import Http4sPlugin._
 import com.typesafe.sbt.SbtGit.GitKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
+import org.scalajs.sbtplugin.cross.CrossProject
 import sbtunidoc.Plugin.UnidocKeys._
 
 import scala.xml.transform.{RewriteRule, RuleTransformer}
@@ -20,7 +21,7 @@ enablePlugins(PrivateProjectPlugin)
 cancelable in Global := true
 
 // This defines macros that we use in core, so it needs to be split out
-lazy val parboiled2 = libraryProject("parboiled2")
+lazy val parboiled2 = libraryCrossProject("parboiled2")
   .settings(
     description := "Internal fork of parboiled2 to remove shapeless dependency",    
     libraryDependencies ++= Seq(
@@ -31,6 +32,9 @@ lazy val parboiled2 = libraryProject("parboiled2")
     (scalacOptions in Compile) -= "-Ywarn-unused-import",
     macroParadiseSetting
   )
+
+lazy val parboiled2JVM = parboiled2.jvm
+lazy val parboiled2JS  = parboiled2.js
 
 lazy val core = libraryProject("core")
   .enablePlugins(BuildInfoPlugin)
@@ -50,7 +54,7 @@ lazy val core = libraryProject("core")
     ),
     macroParadiseSetting
   )
-  .dependsOn(parboiled2)
+  .dependsOn(parboiled2JVM)
 
 lazy val testing = libraryProject("testing")
   .settings(
@@ -267,6 +271,7 @@ lazy val docs = http4sProject("docs")
     autoAPIMappings := true,
     unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject --
       inProjects( // TODO would be nice if these could be introspected from noPublishSettings
+        parboiled2JS,
         bench,
         examples,
         examplesBlaze,
@@ -431,7 +436,28 @@ def http4sProject(name: String) = Project(name, file(name))
     initCommands()
   )
 
+def http4sCrossProject(name: String) = CrossProject(name, file(name), CrossType.Pure)
+  .settings(commonSettings)
+  .settings(
+    moduleName := s"http4s-$name",
+    testOptions in Test += Tests.Argument(TestFrameworks.Specs2,"showtimes", "failtrace"),
+    initCommands()
+  ).jsSettings(
+    // Ignore, tut is not supported in scala.js
+    sources in (Compile,doc) := Seq.empty,
+    // This is needed to support the  TLS compiler and scala.js at the same time
+    // Remove the dependency on the scalajs-compiler
+    libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
+      libDeps.filterNot(dep => dep.name == "scalajs-compiler")
+    },
+
+    // And add a custom one:
+    addCompilerPlugin("org.scala-js" % "scalajs-compiler" % scalaJSVersion cross CrossVersion.patch)
+  )
+
 def libraryProject(name: String) = http4sProject(name)
+
+def libraryCrossProject(name: String) = http4sCrossProject(name)
 
 def exampleProject(name: String) = http4sProject(name)
   .in(file(name.replace("examples-", "examples/")))
@@ -505,3 +531,8 @@ def initCommands(additionalImports: String*) =
 addCommandAlias("validate", ";test ;scalafmt::test; test:scalafmt::test ;makeSite ;mimaReportBinaryIssues")
 // Why doesn't this work from project/*.scala?
 scalafmtOnCompile in Sbt := false
+
+// This is needed to support the  TLS compiler and scala.js at the same time
+libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
+  libDeps.filterNot(dep => dep.name == "scalajs-compiler")
+}
