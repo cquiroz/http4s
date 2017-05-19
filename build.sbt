@@ -2,6 +2,7 @@ import Http4sPlugin._
 import com.typesafe.sbt.SbtGhPages.GhPagesKeys._
 import com.typesafe.sbt.SbtGit.GitKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
+import org.scalajs.sbtplugin.cross.CrossProject
 import sbtunidoc.Plugin.UnidocKeys._
 
 import scala.xml.transform.{RewriteRule, RuleTransformer}
@@ -17,11 +18,12 @@ apiVersion in ThisBuild := (version in ThisBuild).map {
 name := "root"
 description := "A minimal, Scala-idiomatic library for HTTP"
 enablePlugins(DisablePublishingPlugin)
+enablePlugins(ScalaJSPlugin)
 
 cancelable in Global := true
 
 // This defines macros that we use in core, so it needs to be split out
-lazy val parboiled2 = libraryProject("parboiled2")
+lazy val parboiled2 = libraryCrossProject("parboiled2")
   .enablePlugins(DisablePublishingPlugin)
   .settings(
     libraryDependencies ++= Seq(
@@ -31,6 +33,9 @@ lazy val parboiled2 = libraryProject("parboiled2")
     (scalacOptions in Compile) --= Seq("-Ywarn-inaccessible", "-Xlint", "-Xlint:inaccessible"),
     macroParadiseSetting
   )
+
+lazy val parboiled2JVM = parboiled2.jvm
+lazy val parboiled2JS  = parboiled2.js
 
 lazy val core = libraryProject("core")
   .enablePlugins(BuildInfoPlugin)
@@ -49,13 +54,13 @@ lazy val core = libraryProject("core")
       scalaCompiler(scalaOrganization.value, scalaVersion.value) % "provided"
     ),
     macroParadiseSetting,
-    mappings in (Compile, packageBin) ++= (mappings in (parboiled2.project, Compile, packageBin)).value,
-    mappings in (Compile, packageSrc) ++= (mappings in (parboiled2.project, Compile, packageSrc)).value,
-    mappings in (Compile, packageDoc) ++= (mappings in (parboiled2.project, Compile, packageDoc)).value,
+    mappings in (Compile, packageBin) ++= (mappings in (parboiled2JVM.project, Compile, packageBin)).value,
+    mappings in (Compile, packageSrc) ++= (mappings in (parboiled2JVM.project, Compile, packageSrc)).value,
+    mappings in (Compile, packageDoc) ++= (mappings in (parboiled2JVM.project, Compile, packageDoc)).value,
     mappings in (Compile, packageBin) ~= (_.groupBy(_._2).toSeq.map(_._2.head)), // filter duplicate outputs
     mappings in (Compile, packageDoc) ~= (_.groupBy(_._2).toSeq.map(_._2.head)) // filter duplicate outputs
   )
-  .dependsOn(parboiled2)
+  .dependsOn(parboiled2JVM)
 
 lazy val testing = libraryProject("testing")
   .settings(
@@ -277,6 +282,7 @@ lazy val docs = http4sProject("docs")
     autoAPIMappings := true,
     unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject --
       inProjects( // TODO would be nice if these could be introspected from noPublishSettings
+        parboiled2JS,
         bench,
         examples,
         examplesBlaze,
@@ -460,7 +466,28 @@ def http4sProject(name: String) = Project(name, file(name))
     initCommands()
   )
 
+def http4sCrossProject(name: String) = CrossProject(name, file(name), CrossType.Pure)
+  .settings(commonSettings)
+  .settings(
+    moduleName := s"http4s-$name",
+    testOptions in Test += Tests.Argument(TestFrameworks.Specs2,"showtimes", "failtrace"),
+    initCommands()
+  ).jsSettings(
+    // Ignore, tut is not supported in scala.js
+    sources in (Compile,doc) := Seq.empty,
+    // This is needed to support the  TLS compiler and scala.js at the same time
+    // Remove the dependency on the scalajs-compiler
+    libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
+      libDeps.filterNot(dep => dep.name == "scalajs-compiler")
+    },
+
+    // And add a custom one:
+    addCompilerPlugin("org.scala-js" % "scalajs-compiler" % scalaJSVersion cross CrossVersion.patch)
+  )
+
 def libraryProject(name: String) = http4sProject(name)
+
+def libraryCrossProject(name: String) = http4sCrossProject(name)
 
 def exampleProject(name: String) = http4sProject(name)
   .in(file(name.replace("examples-", "examples/")))
@@ -532,3 +559,8 @@ def initCommands(additionalImports: String*) =
   ) ++ additionalImports).mkString("import ", ", ", "")
 
 addCommandAlias("validate", ";test ;makeSite ;mimaReportBinaryIssues")
+
+// This is needed to support the  TLS compiler and scala.js at the same time
+libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
+  libDeps.filterNot(dep => dep.name == "scalajs-compiler")
+}
