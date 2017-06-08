@@ -24,7 +24,7 @@ cancelable in Global := true
 
 // This defines macros that we use in core, so it needs to be split out
 lazy val parboiled2 = libraryCrossProject("parboiled2")
-  .enablePlugins(DisablePublishingPlugin)
+  //.enablePlugins(DisablePublishingPlugin)
   .settings(
     libraryDependencies ++= Seq(
       scalaReflect(scalaOrganization.value, scalaVersion.value) % "provided"
