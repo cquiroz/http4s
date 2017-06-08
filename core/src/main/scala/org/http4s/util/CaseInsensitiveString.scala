@@ -1,6 +1,5 @@
 package org.http4s.util
 
-import java.util.Locale
 import cats.{Eq, Monoid, Order, Show}
 
 /**
