@@ -6,6 +6,8 @@ import com.typesafe.tools.mima.plugin.MimaPlugin, MimaPlugin.autoImport._
 import com.lucidchart.sbt.scalafmt.ScalafmtCorePlugin, ScalafmtCorePlugin.autoImport._
 import sbtrelease._
 import sbtrelease.ReleasePlugin.autoImport._
+import org.scalajs.sbtplugin.ScalaJSPlugin
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 import scala.util.Properties.envOrNone
 import verizon.build.RigPlugin, RigPlugin._
 
@@ -117,7 +119,7 @@ object Http4sPlugin extends AutoPlugin {
   lazy val fs2Scodec                        = "co.fs2"                 %% "fs2-scodec"                % fs2Io.revision
   lazy val gatlingTest                      = "io.gatling"             %  "gatling-test-framework"    % "2.3.0"
   lazy val gatlingHighCharts                = "io.gatling.highcharts"  %  "gatling-charts-highcharts" % gatlingTest.revision
-  lazy val http4sWebsocket                  = "org.http4s"             %% "http4s-websocket"          % "0.2.0"
+  lazy val http4sWebsocket                  = Def.setting("org.http4s"             %%% "http4s-websocket"          % "0.2.0")
   lazy val javaxServletApi                  = "javax.servlet"          %  "javax.servlet-api"         % "3.1.0"
   lazy val jawnJson4s                       = "org.spire-math"         %% "jawn-json4s"               % "0.11.0"
   lazy val jawnFs2                          = "org.http4s"             %% "jawn-fs2"                  % "0.12.0-M2"
@@ -127,9 +129,9 @@ object Http4sPlugin extends AutoPlugin {
   lazy val json4sJackson                    = "org.json4s"             %% "json4s-jackson"            % json4sCore.revision
   lazy val json4sNative                     = "org.json4s"             %% "json4s-native"             % json4sCore.revision
   lazy val jspApi                           = "javax.servlet.jsp"      %  "javax.servlet.jsp-api"     % "2.3.1" // YourKit hack
-  lazy val log4s                            = "org.log4s"              %% "log4s"                     % "1.3.6"
+  lazy val log4s                            = Def.setting("org.log4s"              %%% "log4s"                     % "1.3.6")
   lazy val logbackClassic                   = "ch.qos.logback"         %  "logback-classic"           % "1.2.3"
-  lazy val macroCompat                      = "org.typelevel"          %% "macro-compat"              % "1.1.1"
+  lazy val macroCompat                      = Def.setting("org.typelevel"          %%% "macro-compat"              % "1.1.1")
   lazy val metricsCore                      = "io.dropwizard.metrics"  %  "metrics-core"              % "3.2.4"
   lazy val metricsJson                      = "io.dropwizard.metrics"  %  "metrics-json"              % metricsCore.revision
   lazy val quasiquotes                      = "org.scalamacros"        %% "quasiquotes"               % "2.1.0"
@@ -137,7 +139,7 @@ object Http4sPlugin extends AutoPlugin {
   def scalaCompiler(so: String, sv: String) = so                       %  "scala-compiler"            % sv
   def scalaReflect(so: String, sv: String)  = so                       %  "scala-reflect"             % sv
   lazy val scalaXml                         = "org.scala-lang.modules" %% "scala-xml"                 % "1.0.6"
-  lazy val scodecBits                       = "org.scodec"             %% "scodec-bits"               % "1.1.5"
+  lazy val scodecBits                       = Def.setting("org.scodec"             %%% "scodec-bits"               % "1.1.5")
   lazy val specs2Core                       = "org.specs2"             %% "specs2-core"               % "4.0.0-RC4"
   lazy val specs2MatcherExtra               = "org.specs2"             %% "specs2-matcher-extra"      % specs2Core.revision
   lazy val specs2Scalacheck                 = "org.specs2"             %% "specs2-scalacheck"         % specs2Core.revision
