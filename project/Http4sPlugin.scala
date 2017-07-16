@@ -112,7 +112,7 @@ object Http4sPlugin extends AutoPlugin {
   lazy val fs2ReactiveStreams               = "com.github.zainab-ali"  %% "fs2-reactive-streams"      % "0.1.0"
   lazy val gatlingTest                      = "io.gatling"             %  "gatling-test-framework"    % "2.2.5"
   lazy val gatlingHighCharts                = "io.gatling.highcharts"  %  "gatling-charts-highcharts" % gatlingTest.revision
-  lazy val http4sWebsocket                  = Def.setting("org.http4s"             %%% "http4s-websocket"          % "0")
+  lazy val http4sWebsocket                  = Def.setting("org.http4s"             %%% "http4s-websocket"          % "0.2.")
   lazy val javaxServletApi                  = "javax.servlet"          %  "javax.servlet-api"         % "3.1.0"
   lazy val jawnJson4s                       = "org.spire-math"         %% "jawn-json4s"               % "0.10.4"
   lazy val jawnFs2                          = "org.http4s"             %% "jawn-fs2"                  % "0.10.1"
