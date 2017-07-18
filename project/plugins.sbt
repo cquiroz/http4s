@@ -14,6 +14,6 @@ addSbtPlugin("io.spray"           %  "sbt-revolver"          % "0.8.0")
 addSbtPlugin("io.verizon.build"   %  "sbt-rig"               % "2.0.29")
 addSbtPlugin("org.tpolecat"       %  "tut-plugin"            % "0.4.8")
 addSbtPlugin("pl.project13.scala" %  "sbt-jmh"               % "0.2.24")
-addSbtPlugin("org.scala-js"       %  "sbt-scalajs"           % "0.6.16")
+addSbtPlugin("org.scala-js"       %  "sbt-scalajs"           % "0.6.18")
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.7"
