@@ -45,9 +45,8 @@ lazy val core = libraryCrossProject("core")
     buildInfoPackage := organization.value,
     libraryDependencies ++= Seq(
       fs2Cats.value,
-      // fs2Io.value,
+      fs2Io,
       http4sWebsocket.value,
-      // log4s.value,
       macroCompat.value,
       scalaReflect(scalaOrganization.value, scalaVersion.value) % "provided",
       scodecBits.value,
@@ -59,6 +58,9 @@ lazy val core = libraryCrossProject("core")
     mappings in (Compile, packageDoc) ++= (mappings in (parboiled2JVM.project, Compile, packageDoc)).value,
     mappings in (Compile, packageBin) ~= (_.groupBy(_._2).toSeq.map(_._2.head)), // filter duplicate outputs
     mappings in (Compile, packageDoc) ~= (_.groupBy(_._2).toSeq.map(_._2.head)) // filter duplicate outputs
+  )
+  .jvmSettings(
+    libraryDependencies += log4s
   )
   .jsSettings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-M11"
@@ -471,7 +473,7 @@ def http4sProject(name: String) = Project(name, file(name))
     initCommands()
   )
 
-def http4sCrossProject(name: String) = CrossProject(name, file(name), CrossType.Pure)
+def http4sCrossProject(name: String) = CrossProject(name, file(name), CrossType.Full)
   .settings(commonSettings)
   .settings(
     moduleName := s"http4s-$name",
