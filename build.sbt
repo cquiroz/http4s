@@ -110,7 +110,7 @@ lazy val client = libraryProject("client")
     description := "Base library for building http4s clients",
     libraryDependencies += jettyServlet % "test"
   )
-  .dependsOn(coreJVM, testing % "test->test", server % "test->compile", theDsl % "test->compile")
+  .dependsOn(coreJVM, testing % "test->test", server % "test->compile", theDsl % "test->compile", scalaXml % "test->compile")
 
 lazy val blazeCore = libraryProject("blaze-core")
   .settings(
