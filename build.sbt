@@ -45,7 +45,6 @@ lazy val core = libraryCrossProject("core")
     buildInfoPackage := organization.value,
     libraryDependencies ++= Seq(
       fs2Cats.value,
-      fs2Io,
       http4sWebsocket.value,
       macroCompat.value,
       scalaReflect(scalaOrganization.value, scalaVersion.value) % "provided",
@@ -60,7 +59,10 @@ lazy val core = libraryCrossProject("core")
     mappings in (Compile, packageDoc) ~= (_.groupBy(_._2).toSeq.map(_._2.head)) // filter duplicate outputs
   )
   .jvmSettings(
-    libraryDependencies += log4s
+    libraryDependencies ++= Seq(
+      log4s,
+      fs2Io
+    )
   )
   .jsSettings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-M11"
