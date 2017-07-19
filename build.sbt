@@ -43,7 +43,6 @@ lazy val core = libraryCrossProject("core")
     buildInfoKeys := Seq[BuildInfoKey](version, scalaVersion, apiVersion),
     buildInfoPackage := organization.value,
     libraryDependencies ++= Seq(
-      fs2Io,
       fs2Scodec,
       http4sWebsocket.value,
       macroCompat.value,
@@ -54,7 +53,10 @@ lazy val core = libraryCrossProject("core")
     macroParadiseSetting
   )
   .jvmSettings(
-    libraryDependencies += log4s
+    libraryDependencies ++= Seq(
+      log4s,
+      fs2Io
+    )
   )
   .jsSettings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-M11"
