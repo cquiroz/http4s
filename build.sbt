@@ -72,7 +72,7 @@ lazy val core = libraryCrossProject("core")
 lazy val coreJVM = core.jvm
 lazy val coreJS  = core.js
 
-lazy val testing = libraryProject("testing")
+lazy val testing = libraryCrossProject("testing")
   .settings(
     description := "Instances and laws for testing http4s code",
     libraryDependencies ++= Seq(
@@ -81,7 +81,10 @@ lazy val testing = libraryProject("testing")
     ),
     macroParadiseSetting
   )
-  .dependsOn(coreJVM)
+  .dependsOn(core)
+
+lazy val testingJVM = testing.jvm
+lazy val testingJS  = testing.js
 
 // Defined outside core/src/test so it can depend on published testing
 lazy val tests = libraryProject("tests")
@@ -89,13 +92,13 @@ lazy val tests = libraryProject("tests")
     description := "Tests for core project",
     mimaPreviousArtifacts := Set.empty
   )
-  .dependsOn(coreJVM, testing % "test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test")
 
 lazy val server = libraryProject("server")
   .settings(
     description := "Base library for building http4s servers"
   )
-  .dependsOn(coreJVM, testing % "test->test", theDsl % "test->compile")
+  .dependsOn(coreJVM, testingJVM % "test->test", theDsl % "test->compile")
 
 lazy val serverMetrics = libraryProject("server-metrics")
   .settings(
@@ -112,14 +115,14 @@ lazy val client = libraryProject("client")
     description := "Base library for building http4s clients",
     libraryDependencies += jettyServlet % "test"
   )
-  .dependsOn(coreJVM, testing % "test->test", server % "test->compile", theDsl % "test->compile", scalaXml % "test->compile")
+  .dependsOn(coreJVM, testingJVM % "test->test", server % "test->compile", theDsl % "test->compile", scalaXml % "test->compile")
 
 lazy val blazeCore = libraryProject("blaze-core")
   .settings(
     description := "Base library for binding blaze to http4s clients and servers",
     libraryDependencies += blaze
   )
-  .dependsOn(coreJVM, testing % "test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test")
 
 lazy val blazeServer = libraryProject("blaze-server")
   .settings(
@@ -141,7 +144,7 @@ lazy val asyncHttpClient = libraryProject("async-http-client")
       fs2ReactiveStreams
     )
   )
-  .dependsOn(coreJVM, testing % "test->test", client % "compile;test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test", client % "compile;test->test")
 
 lazy val servlet = libraryProject("servlet")
   .settings(
@@ -178,14 +181,14 @@ lazy val theDsl = libraryProject("dsl")
   .settings(
     description := "Simple DSL for writing http4s services"
   )
-  .dependsOn(coreJVM, testing % "test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test")
 
 lazy val jawn = libraryProject("jawn")
   .settings(
     description := "Base library to parse JSON to various ASTs for http4s",
     libraryDependencies += jawnFs2
   )
-  .dependsOn(coreJVM, testing % "test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test")
 
 lazy val argonaut = libraryProject("argonaut")
   .settings(
@@ -194,14 +197,14 @@ lazy val argonaut = libraryProject("argonaut")
       Http4sPlugin.argonaut
     )
   )
-  .dependsOn(coreJVM, testing % "test->test", jawn % "compile;test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test", jawn % "compile;test->test")
 
 lazy val circe = libraryProject("circe")
   .settings(
     description := "Provides Circe codecs for http4s",
     libraryDependencies += circeJawn
   )
-  .dependsOn(coreJVM, testing % "test->test", jawn % "compile;test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test", jawn % "compile;test->test")
 
 lazy val json4s = libraryProject("json4s")
   .settings(
@@ -235,7 +238,7 @@ lazy val scalaXml = libraryProject("scala-xml")
       case _ => Seq.empty
     }).value
   )
-  .dependsOn(coreJVM, testing % "test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test")
 
 lazy val twirl = http4sProject("twirl")
   .settings(
@@ -243,7 +246,7 @@ lazy val twirl = http4sProject("twirl")
     libraryDependencies += twirlApi
   )
   .enablePlugins(SbtTwirl)
-  .dependsOn(coreJVM, testing % "test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test")
 
 lazy val bench = http4sProject("bench")
   .enablePlugins(JmhPlugin)
