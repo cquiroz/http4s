@@ -6,7 +6,7 @@ import java.net.URL
 import cats.Eq
 import cats.implicits._
 import fs2.{Stream, Task}
-import fs2.io.readInputStream
+// import fs2.io.readInputStream
 import fs2.text.utf8Encode
 import org.http4s.{EmptyBody, Header, Headers}
 import org.http4s.headers.`Content-Disposition`
@@ -36,8 +36,8 @@ object Part {
   private def fileData(name: String, filename: String, in: => InputStream, headers: Header*): Part = {
     Part(`Content-Disposition`("form-data", Map("name" -> name, "filename" -> filename)) +:
       Header("Content-Transfer-Encoding", "binary") +:
-      headers,
-      readInputStream(Task.delay(in), ChunkSize))
+      headers, EmptyBody)
+      //readInputStream(Task.delay(in), ChunkSize))
   }
 
 }

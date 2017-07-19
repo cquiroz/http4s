@@ -81,10 +81,10 @@ class EntityDecoderSpec extends Http4sSpec with PendingUntilFixed {
     }
 
     "Completely customize the response of a ParsingFailure" in {
-      val failure = GenericParsingFailure("sanitized", "details", 
+      val failure = GenericParsingFailure("sanitized", "details",
         response = (httpVersion: HttpVersion) => Response(Status.BadRequest, httpVersion).withBody(ErrorJson("""{"error":"parse error"}""")))
         .toHttpResponse(HttpVersion.`HTTP/1.1`)
-      
+
       "the content type is application/json" ==> {
         failure must returnValue(haveMediaType(MediaType.`application/json`))
       }
@@ -165,7 +165,7 @@ class EntityDecoderSpec extends Http4sSpec with PendingUntilFixed {
       val happyDecoder = EntityDecoder.decodeBy(MediaRange.`*/*`)(_ => DecodeResult.success(Task.now("hooray")))
       Task.async[String] { cb =>
         request.decodeWith(happyDecoder, strict = false) { s => cb(Right(s)); Task.now(Response()) }.unsafeRun
-        ()                                                              
+        ()
       } must returnValue("hooray")
     }
 
@@ -199,7 +199,7 @@ class EntityDecoderSpec extends Http4sSpec with PendingUntilFixed {
     }.pendingUntilFixed
   }
 
-  "A File EntityDecoder" should {
+  /*"A File EntityDecoder" should {
     val binData: Array[Byte] = "Bytes 10111".getBytes
 
     def readFile(in: File): Array[Byte] = {
@@ -256,7 +256,7 @@ class EntityDecoderSpec extends Http4sSpec with PendingUntilFixed {
         ()
       }
     }
-  }
+  }*/
 
   "binary EntityDecoder" should {
     "yield an empty array on a bodyless message" in {

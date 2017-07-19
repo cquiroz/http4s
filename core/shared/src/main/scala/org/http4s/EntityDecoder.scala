@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 import cats.implicits._
 import fs2._
-import fs2.io._
+// import fs2.io._
 import fs2.interop.cats._
 import org.http4s.util.chunk._
 import org.http4s.headers.`Content-Type`
@@ -158,17 +158,17 @@ trait EntityDecoderInstances {
     )
 
   // File operations // TODO: rewrite these using NIO non blocking FileChannels, and do these make sense as a 'decoder'?
-  def binFile(file: File): EntityDecoder[File] =
-    EntityDecoder.decodeBy(MediaRange.`*/*`){ msg =>
-      val sink = writeOutputStream[Task](Task.delay(new FileOutputStream(file)))
-      DecodeResult.success(msg.body.to(sink).run).map(_ => file)
-    }
-
-  def textFile(file: File): EntityDecoder[File] =
-    EntityDecoder.decodeBy(MediaRange.`text/*`){ msg =>
-      val sink = writeOutputStream[Task](Task.delay(new PrintStream(new FileOutputStream(file))))
-      DecodeResult.success(msg.body.to(sink).run).map(_ => file)
-    }
+  // def binFile(file: File): EntityDecoder[File] =
+  //   EntityDecoder.decodeBy(MediaRange.`*/*`){ msg =>
+  //     val sink = writeOutputStream[Task](Task.delay(new FileOutputStream(file)))
+  //     DecodeResult.success(msg.body.to(sink).run).map(_ => file)
+  //   }
+  //
+  // def textFile(file: File): EntityDecoder[File] =
+  //   EntityDecoder.decodeBy(MediaRange.`text/*`){ msg =>
+  //     val sink = writeOutputStream[Task](Task.delay(new PrintStream(new FileOutputStream(file))))
+  //     DecodeResult.success(msg.body.to(sink).run).map(_ => file)
+  //   }
 
   implicit def multipart: EntityDecoder[Multipart] =
     MultipartDecoder.decoder

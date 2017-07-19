@@ -63,25 +63,6 @@ class EntityEncoderSpec extends Http4sSpec {
       }
     }
 
-    "render files" in {
-      val tmpFile = File.createTempFile("http4s-test-", ".txt")
-      try {
-        val w = new FileWriter(tmpFile)
-        try w.write("render files test")
-        finally w.close()
-        writeToString(tmpFile) must_== "render files test"
-      }
-      finally {
-        tmpFile.delete()
-        ()
-      }
-    }
-
-    "render input streams" in {
-      val inputStream = Eval.always(new ByteArrayInputStream("input stream".getBytes(StandardCharsets.UTF_8)))
-      writeToString(inputStream) must_== "input stream"
-    }
-
     "render readers" in {
       val reader = new StringReader("string reader")
       writeToString(Task.delay(reader)) must_== "string reader"

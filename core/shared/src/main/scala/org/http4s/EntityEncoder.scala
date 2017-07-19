@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import cats._
 import cats.functor._
 import fs2._
-import fs2.io._
+// import fs2.io._
 import fs2.Stream._
 import org.http4s.headers._
 import org.http4s.multipart._
@@ -127,7 +127,7 @@ trait EntityEncoderInstances0 {
 trait EntityEncoderInstances extends EntityEncoderInstances0 {
   import EntityEncoder._
 
-  private val DefaultChunkSize = 4096
+  protected val DefaultChunkSize = 4096
 
   implicit val unitEncoder: EntityEncoder[Unit] = emptyEncoder[Unit]
 
@@ -154,22 +154,6 @@ trait EntityEncoderInstances extends EntityEncoderInstances0 {
     override def toEntity(a: Task[A]): Task[Entity] = a.flatMap(W.toEntity)
     override def headers: Headers = W.headers
   }
-
-  // TODO parameterize chunk size
-  // TODO if Header moves to Entity, can add a Content-Disposition with the filename
-  implicit val fileEncoder: EntityEncoder[File] =
-    inputStreamEncoder.contramap(file => Eval.always(new FileInputStream(file)))
-
-  // TODO parameterize chunk size
-  // TODO if Header moves to Entity, can add a Content-Disposition with the filename
-  implicit val filePathEncoder: EntityEncoder[Path] =
-    fileEncoder.contramap(_.toFile)
-
-  // TODO parameterize chunk size
-  implicit def inputStreamEncoder[A <: InputStream]: EntityEncoder[Eval[A]] =
-    sourceEncoder[Byte].contramap { in: Eval[A] =>
-      readInputStream[Task](Task.delay(in.value), DefaultChunkSize)
-    }
 
   // TODO parameterize chunk size
   implicit def readerEncoder[A <: Reader](implicit charset: Charset = DefaultCharset): EntityEncoder[Task[A]] =
