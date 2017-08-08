@@ -112,7 +112,7 @@ object Http4sPlugin extends AutoPlugin {
   lazy val fs2ReactiveStreams               = "com.github.zainab-ali"  %% "fs2-reactive-streams"      % "0.1.0"
   lazy val gatlingTest                      = "io.gatling"             %  "gatling-test-framework"    % "2.2.5"
   lazy val gatlingHighCharts                = "io.gatling.highcharts"  %  "gatling-charts-highcharts" % gatlingTest.revision
-  lazy val http4sWebsocket                  = Def.setting("org.http4s"             %%% "http4s-websocket"          % "0.2.")
+  lazy val http4sWebsocket                  = Def.setting("org.http4s"             %%% "http4s-websocket"          % "0.2.0")
   lazy val javaxServletApi                  = "javax.servlet"          %  "javax.servlet-api"         % "3.1.0"
   lazy val jawnJson4s                       = "org.spire-math"         %% "jawn-json4s"               % "0.10.4"
   lazy val jawnFs2                          = "org.http4s"             %% "jawn-fs2"                  % "0.10.1"
@@ -122,7 +122,7 @@ object Http4sPlugin extends AutoPlugin {
   lazy val json4sJackson                    = "org.json4s"             %% "json4s-jackson"            % json4sCore.revision
   lazy val json4sNative                     = "org.json4s"             %% "json4s-native"             % json4sCore.revision
   lazy val jspApi                           = "javax.servlet.jsp"      %  "javax.servlet.jsp-api"     % "2.3.1" // YourKit hack
-  lazy val log4s                            = Def.setting("org.log4s"              %%% "log4s"                     % "1.3.6")
+  lazy val log4s                            = "org.log4s"              %% "log4s"                     % "1.3.6"
   lazy val logbackClassic                   = "ch.qos.logback"         %  "logback-classic"           % "1.2.3"
   lazy val macroCompat                      = Def.setting("org.typelevel"          %%% "macro-compat"              % "1.1.1")
   lazy val metricsCore                      = "io.dropwizard.metrics"  %  "metrics-core"              % "3.2.3"
