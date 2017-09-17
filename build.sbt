@@ -23,7 +23,7 @@ cancelable in Global := true
 // This defines macros that we use in core, so it needs to be split out
 lazy val parboiled2 = libraryCrossProject("parboiled2")
   .settings(
-    description := "Internal fork of parboiled2 to remove shapeless dependency",    
+    description := "Internal fork of parboiled2 to remove shapeless dependency",
     libraryDependencies ++= Seq(
       scalaReflect(scalaOrganization.value, scalaVersion.value) % "provided"
     ),
@@ -156,7 +156,7 @@ lazy val asyncHttpClient = libraryProject("async-http-client")
       fs2ReactiveStreams
     )
   )
-  .dependsOn(coreJVM, testingJVM % "test->test", clientJVM % "compile;test->test")
+  .dependsOn(coreJVM, testingJVM % "test->test", clientJVM % "compile;test->test", clientTesting % "test->test")
 
 lazy val servlet = libraryProject("servlet")
   .settings(
@@ -313,6 +313,8 @@ lazy val docs = http4sProject("docs")
         testsJS,
         testingJS,
         clientJS,
+        jawnJS,
+        circeJS,
         bench,
         examples,
         examplesBlaze,
@@ -386,7 +388,7 @@ lazy val docs = http4sProject("docs")
       }
     }
   )
-  .dependsOn(client, core, theDsl, blazeServer, blazeClient, circe)
+  .dependsOn(clientJVM, coreJVM, theDsl, blazeServer, blazeClient, circeJVM)
 
 lazy val website = http4sProject("website")
   .enablePlugins(HugoPlugin, GhpagesPlugin, PrivateProjectPlugin)
