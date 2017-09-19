@@ -1,7 +1,7 @@
 import Http4sPlugin._
 import com.typesafe.sbt.SbtGit.GitKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
-import org.scalajs.sbtplugin.cross.CrossProject
+import sbtcrossproject.{CrossProject, CrossType}
 import sbtunidoc.Plugin.UnidocKeys._
 
 import scala.xml.transform.{RewriteRule, RuleTransformer}
@@ -36,7 +36,7 @@ lazy val parboiled2 = libraryCrossProject("parboiled2")
 lazy val parboiled2JVM = parboiled2.jvm
 lazy val parboiled2JS  = parboiled2.js
 
-lazy val core = libraryCrossProject("core")
+lazy val core = libraryCrossProject("core", CrossType.Full)
   .enablePlugins(BuildInfoPlugin)
   .settings(
     description := "Core http4s library for servers and clients",
@@ -81,7 +81,7 @@ lazy val testingJVM = testing.jvm
 lazy val testingJS  = testing.js
 
 // Defined outside core/src/test so it can depend on published testing
-lazy val tests = libraryCrossProject("tests")
+lazy val tests = libraryCrossProject("tests", CrossType.Full)
   .settings(
     description := "Tests for core project",
     mimaPreviousArtifacts := Set.empty
@@ -289,7 +289,6 @@ lazy val loadTest = http4sProject("load-test")
 
 lazy val tutQuick2 = TaskKey[Seq[(File, String)]]("tutQuick2", "Run tut incrementally on recently changed files")
 
-
 val exportMetadataForSite = TaskKey[File]("export-metadata-for-site", "Export build metadata, like http4s and key dependency versions, for use in tuts and when building site")
 
 lazy val docs = http4sProject("docs")
@@ -479,7 +478,7 @@ def http4sProject(name: String) = Project(name, file(name))
     initCommands()
   )
 
-def http4sCrossProject(name: String) = CrossProject(name, file(name), CrossType.Full)
+def http4sCrossProject(name: String, crossType: CrossType) = CrossProject(name, file(name), crossType, JSPlatform, JVMPlatform)
   .settings(commonSettings)
   .settings(
     moduleName := s"http4s-$name",
@@ -500,7 +499,7 @@ def http4sCrossProject(name: String) = CrossProject(name, file(name), CrossType.
 
 def libraryProject(name: String) = http4sProject(name)
 
-def libraryCrossProject(name: String) = http4sCrossProject(name)
+def libraryCrossProject(name: String, crossType: CrossType = CrossType.Pure) = http4sCrossProject(name, crossType)
 
 def exampleProject(name: String) = http4sProject(name)
   .in(file(name.replace("examples-", "examples/")))
@@ -574,8 +573,3 @@ def initCommands(additionalImports: String*) =
 addCommandAlias("validate", ";test ;scalafmt::test; test:scalafmt::test ;makeSite ;mimaReportBinaryIssues")
 // Why doesn't this work from project/*.scala?
 scalafmtOnCompile in Sbt := false
-
-// This is needed to support the  TLS compiler and scala.js at the same time
-libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
-  libDeps.filterNot(dep => dep.name == "scalajs-compiler")
-}
