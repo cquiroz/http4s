@@ -43,4 +43,5 @@ class MediaRangeSpec extends Http4sSpec {
 
   checkAll("Eq[MediaRange]", EqTests[MediaRange].eqv)
   checkAll("HttpCodec[MediaRange]", HttpCodecTests[MediaRange].httpCodec)
+  // checkAll("HttpCodec[MediaType]", HttpCodecTests[MediaType].httpCodec)
 }
