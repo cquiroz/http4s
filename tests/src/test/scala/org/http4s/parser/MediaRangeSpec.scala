@@ -3,10 +3,10 @@ package parser
 
 import org.http4s.MediaRange._
 import org.http4s.MediaType._
+import org.http4s.testing._
 import org.specs2.mutable.Specification
 
 class MediaRangeSpec extends Specification with Http4s {
-
   def ext = Map("foo" -> "bar")
 
   "MediaRanges" should {
@@ -29,7 +29,7 @@ class MediaRangeSpec extends Specification with Http4s {
     "Be satisfiedBy MediaTypes correctly" in {
       `text/*`.satisfiedBy(`text/css`) must be_==(true)
       `text/*`.satisfiedBy(`text/css`) must be_==(true)
-      `text/*`.satisfiedBy(`audio/aiff`) must be_==(false)
+      `text/*`.satisfiedBy(`audio/x-aiff`) must be_==(false)
     }
 
     "be satisfied regardless of extensions" in {
@@ -76,7 +76,7 @@ class MediaRangeSpec extends Specification with Http4s {
   "MediaRanges and MediaTyes" should {
     "Do inequality amongst each other properly" in {
       val r = `text/*`
-      val t = `text/asp`
+      val t = `text/plain`
 
       r must be_!=(t)
       t must be_!=(r)

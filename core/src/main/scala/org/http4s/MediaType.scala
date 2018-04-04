@@ -206,30 +206,29 @@ object MediaType {
 
   def forExtension(ext: String): Option[MediaType] = extensionMap.get(ext.toLowerCase)
 
-  private def compressible = true
-  // private def uncompressible = false
-  // private def binary = true
-  private def notBinary = false
-
   def multipart(subType: String, boundary: Option[String] = None): MediaType = {
     val ext = boundary.map(b => Map("boundary" -> b)).getOrElse(Map.empty)
-    new MediaType("multipart", subType, compressible, notBinary, Nil, extensions = ext)
+    new MediaType("multipart", subType, MimeDB.Compressible, MimeDB.NotBinary, Nil, extensions = ext)
   }
+
   /////////////////////////// PREDEFINED MEDIA-TYPE DEFINITION ////////////////////////////
-  // private def compressible = true
-  // private def uncompressible = false
-  // private def binary = true
-  // private def notBinary = false
-  //
-  val `text/plain` = MimeDB.MimeDB_text.MimeDB_text.`text/plain`
-  val `application/octet-stream` = MimeDB.MimeDB_application.MimeDB_application.`application/octet-stream`
-  val `application/x-www-form-urlencoded` = MimeDB.MimeDB_application.MimeDB_application_2.`application/x-www-form-urlencoded`
+  val `text/plain`: MediaType = new MediaType("text", "plain", MimeDB.Compressible, MimeDB.NotBinary, List("txt", "text", "conf", "def", "list", "log", "in", "ini"))
+  val `application/octet-stream`: MediaType = new MediaType("application", "octet-stream", MimeDB.Uncompressible, MimeDB.Binary, List("bin", "dms", "lrf", "mar", "so", "dist", "distz", "pkg", "bpk", "dump", "elc", "deploy", "exe", "dll", "deb", "dmg", "iso", "img", "msi", "msp", "msm", "buffer"))
+  val `application/x-www-form-urlencoded`: MediaType = new MediaType("application", "x-www-form-urlencoded", MimeDB.Compressible, MimeDB.NotBinary)
+  val `application/javascript`: MediaType = new MediaType("application", "javascript", MimeDB.Compressible, MimeDB.NotBinary, List("js", "mjs"))
+  val `application/xml`: MediaType = new MediaType("application", "xml", MimeDB.Compressible, MimeDB.NotBinary, List("xml", "xsl", "xsd", "rng"))
+  val `application/json`: MediaType = new MediaType("application", "json", MimeDB.Compressible, MimeDB.Binary, List("json", "map"))
+  val `text/html`: MediaType = new MediaType("text", "html", MimeDB.Compressible, MimeDB.NotBinary, List("html", "htm", "shtml"))
+  val `text/xml`: MediaType = new MediaType("text", "xml", MimeDB.Compressible, MimeDB.NotBinary, List("xml"))
+  val `image/png`: MediaType = new MediaType("image", "png", MimeDB.Uncompressible, MimeDB.Binary, List("png"))
+
   // Curiously text/event-stream isn't included in MimeDB
   val `text/event-stream` = new MediaType("text", "event-stream")
+  // nor hal+json
+  val `application/hal+json` = new MediaType("application", "hal+json", MimeDB.Compressible, MimeDB.Binary)
 
-  val all: Map[(String, String), MediaType] = MimeDB.all.map { case m @ MediaType(main, secondary) => (main.toLowerCase, secondary.toLowerCase) -> m }.toMap + (("text", "event-stream") -> `text/event-stream`)
+  val all: Map[(String, String), MediaType] = (`text/event-stream` :: MimeDB.all).map { case m @ MediaType(main, secondary) => (main.toLowerCase, secondary.toLowerCase) -> m }.toMap
   val extensionMap: Map[String, MediaType] = MimeDB.all.flatMap { case m => m.fileExtensions.map(_ -> m) }.toMap
-  // val `text/event-stream` = MimeDB.MimeDB_text.MimeDB_text.`text/event-stream`
   /**
     * Parse a MediaType
     */

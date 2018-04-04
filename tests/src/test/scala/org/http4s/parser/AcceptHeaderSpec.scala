@@ -3,11 +3,10 @@ package parser
 
 import org.http4s.headers.{Accept, MediaRangeAndQValue}
 import org.http4s.MediaRange._
-import org.http4s.MediaType._
+import org.http4s.testing._
 import org.specs2.mutable.Specification
 
 class AcceptHeaderSpec extends Specification with HeaderParserHelper[Accept] with Http4s {
-
   def hparse(value: String): ParseResult[Accept] = HttpHeaderParser.ACCEPT(value)
 
   def ext = Map("foo" -> "bar", "baz" -> "whatever")
@@ -73,7 +72,7 @@ class AcceptHeaderSpec extends Specification with HeaderParserHelper[Accept] wit
 
     "Parse multiple Types" in {
       // Just do a single type
-      val accept = Accept(`audio/mod`, `audio/mpeg`)
+      val accept = Accept(`audio/mp4`, `audio/mpeg`)
       parse(accept.value) must be_===(accept)
 
       // Go through all of them
@@ -89,8 +88,8 @@ class AcceptHeaderSpec extends Specification with HeaderParserHelper[Accept] wit
       parse(value) must be_===(
         Accept(
           `text/*`.withQValue(q(0.3)),
-          `text/html`.withQValue(q(0.7)),
-          `text/html`.withExtensions(Map("level" -> "1"))
+          MediaType.`text/html`.withQValue(q(0.7)),
+          MediaType.`text/html`.withExtensions(Map("level" -> "1"))
         ))
 
       // Go through all of them
