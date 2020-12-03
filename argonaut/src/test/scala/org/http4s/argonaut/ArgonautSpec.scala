@@ -9,16 +9,14 @@ package argonaut.test // Get out of argonaut package so we can import custom ins
 
 import _root_.argonaut._
 import cats.effect.IO
-import cats.syntax.applicative._
+import cats.syntax.all._
 import java.nio.charset.StandardCharsets
-import jawn.JawnDecodeSupportSpec
+import jawn.JawnDecodeSupportSuite
 import org.http4s.Status.Ok
 import org.http4s.argonaut._
 import org.http4s.headers.`Content-Type`
-import org.http4s.testing.Http4sLegacyMatchersIO
-import org.specs2.specification.core.Fragment
 
-class ArgonautSpec extends JawnDecodeSupportSpec[Json] with Argonauts with Http4sLegacyMatchersIO {
+class ArgonautSuite extends JawnDecodeSupportSuite[Json] with Argonauts {
   val ArgonautInstancesWithCustomErrors = ArgonautInstances.builder
     .withEmptyBodyMessage(MalformedMessageBodyFailure("Custom Invalid JSON: empty body"))
     .withParseExceptionMessage(_ => MalformedMessageBodyFailure("Custom Invalid JSON"))
@@ -29,128 +27,119 @@ class ArgonautSpec extends JawnDecodeSupportSpec[Json] with Argonauts with Http4
 
   testJsonDecoder(jsonDecoder)
   testJsonDecoderError(ArgonautInstancesWithCustomErrors.jsonDecoder)(
-    emptyBody = { case MalformedMessageBodyFailure("Custom Invalid JSON: empty body", _) => ok },
-    parseError = { case MalformedMessageBodyFailure("Custom Invalid JSON", _) => ok }
+    emptyBody = { case MalformedMessageBodyFailure("Custom Invalid JSON: empty body", _) => true },
+    parseError = { case MalformedMessageBodyFailure("Custom Invalid JSON", _) => true }
   )
 
   sealed case class Foo(bar: Int)
   val foo = Foo(42)
   implicit val FooCodec = CodecJson.derive[Foo]
 
-  "json encoder" should {
-    val json = Json("test" -> jString("ArgonautSupport"))
+  val json = Json("test" -> jString("ArgonautSupport"))
 
-    "have json content type" in {
-      jsonEncoder.headers.get(`Content-Type`) must_== Some(
-        `Content-Type`(MediaType.application.json))
-    }
+  test("json encoder should have json content type") {
+    assertEquals(
+      jsonEncoder.headers.get(`Content-Type`),
+      Some(`Content-Type`(MediaType.application.json)))
+  }
 
-    "write compact JSON" in {
-      writeToString(json) must_== """{"test":"ArgonautSupport"}"""
-    }
+  test("json encoder should write compact JSON") {
+    writeToString(json).assertEquals("""{"test":"ArgonautSupport"}""")
+  }
 
-    "write JSON according to custom encoders" in {
-      val custom = ArgonautInstances.withPrettyParams(PrettyParams.spaces2).build
-      import custom._
-      writeToString(json) must_== ("""{
+  test("json encoder should write JSON according to custom encoders") {
+    val custom = ArgonautInstances.withPrettyParams(PrettyParams.spaces2).build
+    import custom._
+    writeToString(json).assertEquals(("""{
                                      |  "test" : "ArgonautSupport"
-                                     |}""".stripMargin)
-    }
+                                     |}""".stripMargin))
+  }
 
-    "write JSON according to explicit printer" in {
-      writeToString(json)(jsonEncoderWithPrettyParams(PrettyParams.spaces2)) must_== ("""{
+  test("json encoder should write JSON according to explicit printer") {
+    writeToString(json)(jsonEncoderWithPrettyParams(PrettyParams.spaces2)).assertEquals(("""{
                                                                                         |  "test" : "ArgonautSupport"
-                                                                                        |}""".stripMargin)
-    }
+                                                                                        |}""".stripMargin))
   }
 
-  "jsonEncoderOf" should {
-    "have json content type" in {
-      jsonEncoderOf[IO, Foo].headers.get(`Content-Type`) must_== Some(
-        `Content-Type`(MediaType.application.json))
-    }
+  test("jsonEncoderOfhave json content type") {
+    assertEquals(
+      jsonEncoderOf[IO, Foo].headers.get(`Content-Type`),
+      Some(`Content-Type`(MediaType.application.json)))
+  }
 
-    "write compact JSON" in {
-      writeToString(foo)(jsonEncoderOf[IO, Foo]) must_== """{"bar":42}"""
-    }
+  test("jsonEncoderOf should write compact JSON") {
+    writeToString(foo)(jsonEncoderOf[IO, Foo]).assertEquals("""{"bar":42}""")
+  }
 
-    "write JSON according to custom encoders" in {
-      val custom = ArgonautInstances.withPrettyParams(PrettyParams.spaces2).build
-      import custom._
-      writeToString(foo)(jsonEncoderOf) must_== ("""{
+  test("jsonEncoderOf should write JSON according to custom encoders") {
+    val custom = ArgonautInstances.withPrettyParams(PrettyParams.spaces2).build
+    import custom._
+    writeToString(foo)(jsonEncoderOf).assertEquals(("""{
                                                    |  "bar" : 42
-                                                   |}""".stripMargin)
-    }
+                                                   |}""".stripMargin))
+  }
 
-    "write JSON according to explicit printer" in {
-      writeToString(foo)(jsonEncoderWithPrinterOf(PrettyParams.spaces2)) must_== ("""{
+  test("write JSON according to explicit printer") {
+    writeToString(foo)(jsonEncoderWithPrinterOf(PrettyParams.spaces2)).assertEquals(("""{
                                                                                     |  "bar" : 42
-                                                                                    |}""".stripMargin)
-    }
+                                                                                    |}""".stripMargin))
   }
 
-  "json" should {
-    "handle the optionality of jNumber" in {
-      // TODO Urgh.  We need to make testing these smoother.
-      // https://github.com/http4s/http4s/issues/157
-      def getBody(body: EntityBody[IO]): IO[Array[Byte]] = body.compile.to(Array)
-      val req = Request[IO]().withEntity(jNumberOrNull(157))
-      req
-        .decode { (json: Json) =>
-          Response[IO](Ok).withEntity(json.number.flatMap(_.toLong).getOrElse(0L).toString).pure[IO]
-        }
-        .map(_.body)
-        .flatMap(getBody)
-        .map(new String(_, StandardCharsets.UTF_8)) must returnValue("157")
-    }
-  }
-
-  "jsonOf" should {
-    "decode JSON from an Argonaut decoder" in {
-      jsonOf[IO, Foo]
-        .decode(
-          Request[IO]().withEntity(jObjectFields("bar" -> jNumberOrNull(42))),
-          strict = true) must returnRight(Foo(42))
-    }
-
-    // https://github.com/http4s/http4s/issues/514
-    Fragment.foreach(Seq("ärgerlich", """"ärgerlich"""")) { wort =>
-      sealed case class Umlaut(wort: String)
-      implicit val codec = CodecJson.derive[Umlaut]
-      s"handle JSON with umlauts: $wort" >> {
-        val json = Json("wort" -> jString(wort))
-        val result =
-          jsonOf[IO, Umlaut].decode(Request[IO]().withEntity(json), strict = true)
-        result must returnRight(Umlaut(wort))
+  test("json should handle the optionality of jNumber") {
+    // TODO Urgh.  We need to make testing these smoother.
+    // https://github.com/http4s/http4s/issues/157
+    def getBody(body: EntityBody[IO]): IO[Array[Byte]] = body.compile.to(Array)
+    val req = Request[IO]().withEntity(jNumberOrNull(157))
+    req
+      .decode { (json: Json) =>
+        Response[IO](Ok).withEntity(json.number.flatMap(_.toLong).getOrElse(0L).toString).pure[IO]
       }
-    }
+      .map(_.body)
+      .flatMap(getBody)
+      .map(new String(_, StandardCharsets.UTF_8))
+      .assertEquals("157")
+  }
 
-    "fail with custom message from an Argonaut decoder" in {
-      val result = ArgonautInstancesWithCustomErrors
-        .jsonOf[IO, Foo]
-        .decode(Request[IO]().withEntity(jObjectFields("bar1" -> jNumberOrNull(42))), strict = true)
-      result.value must returnValue(Left(InvalidMessageBodyFailure(
-        "Custom Could not decode JSON: {\"bar1\":42.0}, error: Attempt to decode value on failed cursor., cursor: CursorHistory(List(El(CursorOpDownField(bar),false)))")))
+  test("jsonOf should decode JSON from an Argonaut decoder") {
+    jsonOf[IO, Foo]
+      .decode(Request[IO]().withEntity(jObjectFields("bar" -> jNumberOrNull(42))), strict = true)
+      .value
+      .assertEquals(Right(Foo(42)))
+  }
+
+  // https://github.com/http4s/http4s/issues/514
+  sealed case class Umlaut(wort: String)
+  implicit val codec = CodecJson.derive[Umlaut]
+  test("json should handle JSON with umlauts") {
+    List("ärgerlich", """"ärgerlich"""").traverse { wort =>
+      val json = Json("wort" -> jString(wort))
+      val result =
+        jsonOf[IO, Umlaut].decode(Request[IO]().withEntity(json), strict = true)
+      result.value.assertEquals(Right(Umlaut(wort)))
     }
   }
 
-  "Uri codec" should {
-    "round trip" in {
-      // TODO would benefit from Arbitrary[Uri]
-      val uri = Uri.uri("http://www.example.com/")
-      uri.asJson.as[Uri].result must beRight(uri)
-    }
+  test("json shouldfail with custom message from an Argonaut decoder") {
+    val result = ArgonautInstancesWithCustomErrors
+      .jsonOf[IO, Foo]
+      .decode(Request[IO]().withEntity(jObjectFields("bar1" -> jNumberOrNull(42))), strict = true)
+    result.value.assertEquals(Left(InvalidMessageBodyFailure(
+      "Custom Could not decode JSON: {\"bar1\":42.0}, error: Attempt to decode value on failed cursor., cursor: CursorHistory(List(El(CursorOpDownField(bar),false)))")))
   }
 
-  "Message[F].decodeJson[A]" should {
-    "decode json from a message" in {
-      val req = Request[IO]().withEntity(foo.asJson)
-      req.decodeJson[Foo] must returnValue(foo)
-    }
+  test("Uri codec should round trip") {
+    // TODO would benefit from Arbitrary[Uri]
+    val uri = Uri.uri("http://www.example.com/")
+    assertEquals(uri.asJson.as[Uri].result, Right(uri))
+  }
 
-    "fail on invalid json" in {
-      val req = Request[IO]().withEntity(List(13, 14).asJson)
-      req.decodeJson[Foo].attempt.unsafeRunSync() must beLeft
-    }
+  test("Message[F].decodeJson[A] should decode json from a message") {
+    val req = Request[IO]().withEntity(foo.asJson)
+    req.decodeJson[Foo].assertEquals(foo)
+  }
+
+  test("Message[F].decodeJson[A] should fail on invalid json") {
+    val req = Request[IO]().withEntity(List(13, 14).asJson)
+    req.decodeJson[Foo].attempt.map(_.isLeft).assertEquals(true)
   }
 }
