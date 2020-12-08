@@ -19,19 +19,19 @@ package server
 package blaze
 
 import cats.syntax.all._
-import cats.effect.IO
+import cats.effect._
 import java.net.{HttpURLConnection, URL}
 import java.nio.charset.StandardCharsets
 import org.http4s.blaze.channel.ChannelOptions
 import org.http4s.dsl.io._
-import org.http4s.testing.Http4sLegacyMatchersIO
 import scala.concurrent.duration._
 import scala.io.Source
-import org.specs2.execute.Result
 import org.http4s.multipart.Multipart
 import scala.concurrent.ExecutionContext.global
 
-class BlazeServerSpec extends Http4sSpec with Http4sLegacyMatchersIO {
+class BlazeServerSuite extends Http4sSuite {
+  implicit val contextShift: ContextShift[IO] = Http4sSpec.TestContextShift
+
   def builder =
     BlazeServerBuilder[IO](global)
       .withResponseHeaderTimeout(1.second)
@@ -66,11 +66,12 @@ class BlazeServerSpec extends Http4sSpec with Http4sLegacyMatchersIO {
 
   withResource(serverR) { server =>
     // This should be in IO and shifted but I'm tired of fighting this.
-    def get(path: String): String =
+    def get(path: String): IO[String] = IO {
       Source
         .fromURL(new URL(s"http://127.0.0.1:${server.address.getPort}$path"))
         .getLines()
         .mkString
+    }
 
     // This should be in IO and shifted but I'm tired of fighting this.
     def getStatus(path: String): IO[Status] = {
@@ -83,7 +84,7 @@ class BlazeServerSpec extends Http4sSpec with Http4sLegacyMatchersIO {
     }
 
     // This too
-    def post(path: String, body: String): String = {
+    def post(path: String, body: String): IO[String] = IO {
       val url = new URL(s"http://127.0.0.1:${server.address.getPort}$path")
       val conn = url.openConnection().asInstanceOf[HttpURLConnection]
       val bytes = body.getBytes(StandardCharsets.UTF_8)
@@ -108,93 +109,97 @@ class BlazeServerSpec extends Http4sSpec with Http4sLegacyMatchersIO {
         Source.fromInputStream(conn.getInputStream, StandardCharsets.UTF_8.name).getLines().mkString
       }
 
-    "A server" should {
-      "route requests on the service executor" in {
-        get("/thread/routing") must startWith("http4s-spec-")
-      }
+    test("route requests on the service executor") {
+      get("/thread/routing").map(_.startsWith("http4s-spec-")).assertEquals(true)
+    }
 
-      "execute the service task on the service executor" in {
-        get("/thread/effect") must startWith("http4s-spec-")
-      }
+    test("execute the service task on the service executor") {
+      get("/thread/effect").map(_.startsWith("http4s-spec-")).assertEquals(true)
+    }
 
-      "be able to echo its input" in {
-        val input = """{ "Hello": "world" }"""
-        post("/echo", input) must startWith(input)
-      }
+    test("be able to echo its input") {
+      val input = """{ "Hello": "world" }"""
+      post("/echo", input).map(_.startsWith(input)).assertEquals(true)
+    }
 
-      "return a 503 if the server doesn't respond" in {
-        getStatus("/never") must returnValue(Status.ServiceUnavailable)
-      }
+    test("return a 503 if the server doesn't respond") {
+      getStatus("/never").assertEquals(Status.ServiceUnavailable)
+    }
 
-      "reliably handle multipart requests" in {
-        val body =
-          """|--aa
+    test("reliably handle multipart requests") {
+      val body =
+        """|--aa
              |Content-Disposition: form-data; name="a"
              |Content-Length: 1
              |
              |a
              |--aa--""".stripMargin.replace("\n", "\r\n")
 
-        // This is flaky due to Blaze threading and Java connection pooling.
-        Result.foreach(1 to 100) { _ =>
-          postChunkedMultipart(
-            "/issue2610",
-            "aa",
-            body
-          ) must returnValue("a")
-        }
+      // This is flaky due to Blaze threading and Java connection pooling.
+      (1 to 100).toList.traverse { _ =>
+        postChunkedMultipart(
+          "/issue2610",
+          "aa",
+          body
+        ).assertEquals("a")
       }
     }
   }
 
-  "ChannelOptions" should {
-    "default to empty" in {
-      builder.channelOptions must_== ChannelOptions(Vector.empty)
-    }
-    "set socket send buffer size" in {
-      builder.withSocketSendBufferSize(8192).socketSendBufferSize must beSome(8192)
-    }
-    "set socket receive buffer size" in {
-      builder.withSocketReceiveBufferSize(8192).socketReceiveBufferSize must beSome(8192)
-    }
-    "set socket keepalive" in {
-      builder.withSocketKeepAlive(true).socketKeepAlive must beSome(true)
-    }
-    "set socket reuse address" in {
-      builder.withSocketReuseAddress(true).socketReuseAddress must beSome(true)
-    }
-    "set TCP nodelay" in {
-      builder.withTcpNoDelay(true).tcpNoDelay must beSome(true)
-    }
-    "unset socket send buffer size" in {
+  test("ChannelOptions should default to empty") {
+    assertEquals(builder.channelOptions, ChannelOptions(Vector.empty))
+  }
+  test("ChannelOptions should set socket send buffer size") {
+    assertEquals(builder.withSocketSendBufferSize(8192).socketSendBufferSize, Some(8192))
+  }
+  test("ChannelOptions should set socket receive buffer size") {
+    assertEquals(builder.withSocketReceiveBufferSize(8192).socketReceiveBufferSize, Some(8192))
+  }
+  test("ChannelOptions should set socket keepalive") {
+    assertEquals(builder.withSocketKeepAlive(true).socketKeepAlive, Some(true))
+  }
+  test("ChannelOptions should set socket reuse address") {
+    assertEquals(builder.withSocketReuseAddress(true).socketReuseAddress, Some(true))
+  }
+  test("ChannelOptions should set TCP nodelay") {
+    assertEquals(builder.withTcpNoDelay(true).tcpNoDelay, Some(true))
+  }
+  test("ChannelOptions should unset socket send buffer size") {
+    assertEquals(
       builder
         .withSocketSendBufferSize(8192)
         .withDefaultSocketSendBufferSize
-        .socketSendBufferSize must beNone
-    }
-    "unset socket receive buffer size" in {
+        .socketSendBufferSize,
+      None)
+  }
+  test("ChannelOptions should unset socket receive buffer size") {
+    assertEquals(
       builder
         .withSocketReceiveBufferSize(8192)
         .withDefaultSocketReceiveBufferSize
-        .socketReceiveBufferSize must beNone
-    }
-    "unset socket keepalive" in {
-      builder.withSocketKeepAlive(true).withDefaultSocketKeepAlive.socketKeepAlive must beNone
-    }
-    "unset socket reuse address" in {
+        .socketReceiveBufferSize,
+      None)
+  }
+  test("ChannelOptions should unset socket keepalive") {
+    assertEquals(builder.withSocketKeepAlive(true).withDefaultSocketKeepAlive.socketKeepAlive, None)
+  }
+  test("ChannelOptions should unset socket reuse address") {
+    assertEquals(
       builder
         .withSocketReuseAddress(true)
         .withDefaultSocketReuseAddress
-        .socketReuseAddress must beNone
-    }
-    "unset TCP nodelay" in {
-      builder.withTcpNoDelay(true).withDefaultTcpNoDelay.tcpNoDelay must beNone
-    }
-    "overwrite keys" in {
+        .socketReuseAddress,
+      None)
+  }
+  test("ChannelOptions should unset TCP nodelay") {
+    assertEquals(builder.withTcpNoDelay(true).withDefaultTcpNoDelay.tcpNoDelay, None)
+  }
+  test("ChannelOptions should overwrite keys") {
+    assertEquals(
       builder
         .withSocketSendBufferSize(8192)
         .withSocketSendBufferSize(4096)
-        .socketSendBufferSize must beSome(4096)
-    }
+        .socketSendBufferSize,
+      Some(4096))
   }
 }

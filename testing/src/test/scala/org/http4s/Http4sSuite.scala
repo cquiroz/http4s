@@ -16,12 +16,13 @@
 
 package org.http4s
 
-import cats.effect.Blocker
+import cats.effect._
 import cats.effect.IO
 import cats.syntax.all._
 import fs2._
 import fs2.text.utf8Decode
-import org.http4s.internal.threads.newBlockingPool
+import org.http4s.internal.threads.{newBlockingPool, newDaemonPool}
+import scala.concurrent.ExecutionContext
 import munit._
 
 /** Common stack for http4s' munit based tests
@@ -45,9 +46,29 @@ trait Http4sSuite extends CatsEffectSuite with DisciplineSuite with munit.ScalaC
       .last
       .map(_.getOrElse(""))
 
+  def withResource[A](r: Resource[IO, A])(fs: A => Unit): Unit =
+    r match {
+      case Resource.Allocate(alloc) =>
+        alloc
+          .map { case (a, _) =>
+            fs(a) //.map(release(ExitCase.Completed))
+          }
+          .unsafeRunSync()
+      case Resource.Bind(r, f) =>
+        withResource(r)(a => withResource(f(a))(fs))
+      case Resource.Suspend(r) =>
+        withResource(r.unsafeRunSync() /* ouch */ )(fs)
+    }
+
 }
 
 object Http4sSuite {
   val TestBlocker: Blocker =
     Blocker.liftExecutorService(newBlockingPool("http4s-spec-blocking"))
+
+  val TestExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(newDaemonPool("http4s-spec", timeout = true))
+
+  val TestContextShift: ContextShift[IO] =
+    IO.contextShift(TestExecutionContext)
 }

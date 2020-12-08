@@ -27,19 +27,16 @@ import javax.servlet.ServletOutputStream
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.http4s._
 import org.http4s.blaze.util.TickWheelExecutor
-import org.http4s.client.ConnectionFailure
+import org.http4s.syntax.all._
 import org.http4s.client.testroutes.GetRoutes
-import org.http4s.testing.Http4sLegacyMatchersIO
-import org.specs2.specification.core.Fragments
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Random
+import scala.concurrent.ExecutionContext
+import cats.data.Nested
 
-class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
+class BlazeClientSuite extends Http4sSuite {
+  val testExecutionContext: ExecutionContext = Http4sSpec.TestExecutionContext
   val tickWheel = new TickWheelExecutor(tick = 50.millis)
-
-  /** the map method allows to "post-process" the fragments after their creation */
-  override def map(fs: => Fragments) = super.map(fs) ^ step(tickWheel.shutdown())
 
   private val timeout = 30.seconds
 
@@ -92,54 +89,63 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
       }
     }
 
-  "Blaze Http1Client" should {
-    withResource(
-      (
-        JettyScaffold[IO](5, false, testServlet),
-        JettyScaffold[IO](1, true, testServlet)
-      ).tupled) {
-      case (
-            jettyServer,
-            jettySslServer
-          ) =>
-        val addresses = jettyServer.addresses
-        val sslAddress = jettySslServer.addresses.head
+  // "Blaze Http1Client" should {
+  withResource(
+    (
+      JettyScaffold[IO](5, false, testServlet),
+      JettyScaffold[IO](1, true, testServlet)
+    ).tupled) {
+    case (
+          jettyServer,
+          jettySslServer
+        ) =>
+      val addresses = jettyServer.addresses
+      val sslAddress = jettySslServer.addresses.head
 
-        "raise error NoConnectionAllowedException if no connections are permitted for key" in {
-          val name = sslAddress.getHostName
-          val port = sslAddress.getPort
-          val u = Uri.fromString(s"https://$name:$port/simple").yolo
-          val resp = mkClient(0).use(_.expect[String](u).attempt).unsafeRunTimed(timeout)
-          resp must_== Some(
-            Left(NoConnectionAllowedException(RequestKey(u.scheme.get, u.authority.get))))
-        }
+      test(
+        "Blaze Http1Client raise error NoConnectionAllowedException if no connections are permitted for key") {
+        val name = sslAddress.getHostName
+        val port = sslAddress.getPort
+        val u = Uri.fromString(s"https://$name:$port/simple").yolo
+        val resp = IO.race(IO.sleep(timeout), mkClient(0).use(_.expect[String](u).attempt))
+        resp.assertEquals(
+          Right(Left(NoConnectionAllowedException(RequestKey(u.scheme.get, u.authority.get)))))
+      }
 
-        "make simple https requests" in {
-          val name = sslAddress.getHostName
-          val port = sslAddress.getPort
-          val u = Uri.fromString(s"https://$name:$port/simple").yolo
-          val resp = mkClient(1).use(_.expect[String](u)).unsafeRunTimed(timeout)
-          resp.map(_.length > 0) must beSome(true)
-        }
+      test("Blaze Http1Client make simple https requests") {
+        val name = sslAddress.getHostName
+        val port = sslAddress.getPort
+        val u = Uri.fromString(s"https://$name:$port/simple").yolo
+        val resp = IO.race(IO.sleep(timeout), mkClient(1).use(_.expect[String](u).attempt))
+        Nested(resp).map(_.map(_.length > 0)).value.assertEquals(Right(Right(true)))
+      }
 
-        "reject https requests when no SSLContext is configured" in {
-          val name = sslAddress.getHostName
-          val port = sslAddress.getPort
-          val u = Uri.fromString(s"https://$name:$port/simple").yolo
-          val resp = mkClient(1, sslContextOption = None)
+      test("Blaze Http1Client reject https requests when no SSLContext is configured") {
+        val name = sslAddress.getHostName
+        val port = sslAddress.getPort
+        val u = Uri.fromString(s"https://$name:$port/simple").yolo
+        val resp = IO.race(
+          IO.sleep(1.second),
+          mkClient(1, sslContextOption = None)
             .use(_.expect[String](u))
-            .attempt
-            .unsafeRunTimed(1.second)
-          resp must beSome(beLeft[Throwable](beAnInstanceOf[ConnectionFailure]))
+            .attempt)
+        resp
+          .map {
+            case Right(Left(_: ConnectionFailure)) => true
+            case _ => false
+          }
+          .assertEquals(true)
+      }
+
+      test("Blaze Http1Client behave and not deadlock".flaky) {
+        val hosts = addresses.map { address =>
+          val name = address.getHostName
+          val port = address.getPort
+          Uri.fromString(s"http://$name:$port/simple").yolo
         }
 
-        "behave and not deadlock" in {
-          val hosts = addresses.map { address =>
-            val name = address.getHostName
-            val port = address.getPort
-            Uri.fromString(s"http://$name:$port/simple").yolo
-          }
-
+        IO.race(
+          IO.sleep(timeout),
           mkClient(3)
             .use { client =>
               (1 to Runtime.getRuntime.availableProcessors * 5).toList
@@ -149,10 +155,12 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
                 }
                 .map(_.forall(identity))
             }
-            .unsafeRunTimed(timeout) must beSome(true)
-        }
+        ).assertEquals(Right(true))
+      }
 
-        "behave and not deadlock on failures with parTraverse" in skipOnCi {
+      test("Blaze Http1Client behave and not deadlock on failures with parTraverse".flaky) {
+        IO.race(
+          IO.sleep(timeout),
           mkClient(3)
             .use { client =>
               val failedHosts = addresses.map { address =>
@@ -185,12 +193,15 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
               } yield r
 
               allRequests
+                .flatTap(res => IO(println(res)))
                 .map(_.forall(identity))
             }
-            .unsafeRunTimed(timeout) must beSome(true)
-        }
+        ).assertEquals(Right(true))
+      }
 
-        "behave and not deadlock on failures with parSequence" in skipOnCi {
+      test("Blaze Http1Client behave and not deadlock on failures with parSequence".flaky) {
+        IO.race(
+          IO.sleep(timeout),
           mkClient(3)
             .use { client =>
               val failedHosts = addresses.map { address =>
@@ -205,17 +216,17 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
                 Uri.fromString(s"http://$name:$port/simple").yolo
               }
 
-              val failedRequests = (1 to Runtime.getRuntime.availableProcessors * 5).toList.map {
-                _ =>
+              val failedRequests =
+                (1 to Runtime.getRuntime.availableProcessors * 5).toList.map { _ =>
                   val h = failedHosts(Random.nextInt(failedHosts.length))
                   client.expect[String](h)
-              }.parSequence
+                }.parSequence
 
-              val sucessRequests = (1 to Runtime.getRuntime.availableProcessors * 5).toList.map {
-                _ =>
+              val sucessRequests =
+                (1 to Runtime.getRuntime.availableProcessors * 5).toList.map { _ =>
                   val h = successHosts(Random.nextInt(successHosts.length))
                   client.expect[String](h).map(_.nonEmpty)
-              }.parSequence
+                }.parSequence
 
               val allRequests = for {
                 _ <- failedRequests.handleErrorWith(_ => IO.unit).replicateA(5)
@@ -225,80 +236,85 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
               allRequests
                 .map(_.forall(identity))
             }
-            .unsafeRunTimed(timeout) must beSome(true)
-        }
+        ).assertEquals(Right(true))
+      }
 
-        "obey response header timeout" in {
-          val address = addresses(0)
-          val name = address.getHostName
-          val port = address.getPort
-          mkClient(1, responseHeaderTimeout = 100.millis)
-            .use { client =>
-              val submit = client.expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
-              submit
-            }
-            .unsafeRunSync() must throwA[TimeoutException]
-        }
+      test("Blaze Http1Client obey response header timeout".flaky) {
+        val address = addresses(0)
+        val name = address.getHostName
+        val port = address.getPort
+        mkClient(1, responseHeaderTimeout = 100.millis)
+          .use { client =>
+            val submit = client.expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
+            submit
+          }
+          .intercept[TimeoutException]
+      }
 
-        "unblock waiting connections" in {
-          val address = addresses(0)
-          val name = address.getHostName
-          val port = address.getPort
-          mkClient(1, responseHeaderTimeout = 20.seconds)
-            .use { client =>
-              val submit = client.expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
-              for {
-                _ <- submit.start
-                r <- submit.attempt
-              } yield r
-            }
-            .unsafeRunSync() must beRight
-        }
+      test("Blaze Http1Client unblock waiting connections") {
+        val address = addresses(0)
+        val name = address.getHostName
+        val port = address.getPort
+        mkClient(1, responseHeaderTimeout = 20.seconds)
+          .use { client =>
+            val submit = client.expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
+            for {
+              _ <- submit.start
+              r <- submit.attempt
+            } yield r
+          }
+          .map(_.isRight)
+          .assertEquals(true)
+      }
 
-        "reset request timeout" in skipOnCi {
-          val address = addresses(0)
-          val name = address.getHostName
-          val port = address.getPort
+      test("Blaze Http1Client reset request timeout") {
+        val address = addresses(0)
+        val name = address.getHostName
+        val port = address.getPort
 
-          Ref[IO].of(0L).flatMap { _ =>
+        Ref[IO]
+          .of(0L)
+          .flatMap { _ =>
             mkClient(1, requestTimeout = 1.second).use { client =>
               val submit =
                 client.status(Request[IO](uri = Uri.fromString(s"http://$name:$port/simple").yolo))
-              submit *> timer.sleep(2.seconds) *> submit
+              submit *> munitTimer.sleep(2.seconds) *> submit
             }
-          } must returnValue(Status.Ok)
-        }
+          }
+          .assertEquals(Status.Ok)
+      }
 
-        "drain waiting connections after shutdown" in {
-          val address = addresses(0)
-          val name = address.getHostName
-          val port = address.getPort
+      test("Blaze Http1Client drain waiting connections after shutdown") {
+        val address = addresses(0)
+        val name = address.getHostName
+        val port = address.getPort
 
-          val resp = mkClient(1, responseHeaderTimeout = 20.seconds)
-            .use { drainTestClient =>
-              drainTestClient
-                .expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
-                .attempt
-                .start
+        val resp = mkClient(1, responseHeaderTimeout = 20.seconds)
+          .use { drainTestClient =>
+            drainTestClient
+              .expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
+              .attempt
+              .start
 
-              val resp = drainTestClient
-                .expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
-                .attempt
-                .map(_.exists(_.nonEmpty))
-                .start
+            val resp = drainTestClient
+              .expect[String](Uri.fromString(s"http://$name:$port/delayed").yolo)
+              .attempt
+              .map(_.exists(_.nonEmpty))
+              .start
 
-              // Wait 100 millis to shut down
-              IO.sleep(100.millis) *> resp.flatMap(_.join)
-            }
-            .unsafeToFuture()
+            // Wait 100 millis to shut down
+            IO.sleep(100.millis) *> resp.flatMap(_.join)
+          }
 
-          Await.result(resp, 6.seconds) must beTrue
-        }
+        IO.race(IO.sleep(6.seconds), resp).assertEquals(Right(true))
+      }
 
-        "cancel infinite request on completion" in {
-          val address = addresses(0)
-          val name = address.getHostName
-          val port = address.getPort
+      test("Blaze Http1Client cancel infinite request on completion".flaky) {
+        val address = addresses(0)
+        val name = address.getHostName
+        val port = address.getPort
+        IO.race(
+          IO.sleep(5.seconds),
           Deferred[IO, Unit]
             .flatMap { reqClosed =>
               mkClient(1, requestTimeout = 10.seconds).use { client =>
@@ -310,15 +326,17 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
                 client.status(req) >> reqClosed.get
               }
             }
-            .unsafeRunTimed(5.seconds) must beSome(())
-        }
+        ).assertEquals(Right(()))
+      }
 
-        "doesn't leak connection on timeout" in {
-          val address = addresses.head
-          val name = address.getHostName
-          val port = address.getPort
-          val uri = Uri.fromString(s"http://$name:$port/simple").yolo
+      test("Blaze Http1Client doesn't leak connection on timeout") {
+        val address = addresses.head
+        val name = address.getHostName
+        val port = address.getPort
+        val uri = Uri.fromString(s"http://$name:$port/simple").yolo
 
+        IO.race(
+          IO.sleep(5.seconds),
           mkClient(1)
             .use { client =>
               val req = Request[IO](uri = uri)
@@ -331,12 +349,13 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
                 .attempt >>
                 client.status(req)
             }
-            .unsafeRunTimed(5.seconds)
-            .attempt must_== Some(Right(Status.Ok))
-        }
+        ).assertEquals(Right(Status.Ok))
+      }
 
-        "call a second host after reusing connections on a first" in skipOnCi {
-          // https://github.com/http4s/http4s/pull/2546
+      test("Blaze Http1Client call a second host after reusing connections on a first") {
+        // https://github.com/http4s/http4s/pull/2546
+        IO.race(
+          IO.sleep(5.seconds),
           mkClient(maxConnectionsPerRequestKey = Int.MaxValue, maxTotalConnections = 5)
             .use { client =>
               val uris = addresses.take(2).map { address =>
@@ -351,20 +370,21 @@ class BlazeClientSpec extends Http4sSpec with Http4sLegacyMatchersIO {
                 client.expect[String](Request[IO](uri = uris(1))))
               s.compile.lastOrError
             }
-            .unsafeRunTimed(5.seconds)
-            .attempt must_== Some(Right("simple path"))
-        }
+        ).assertEquals(Right("simple path"))
+      }
 
-        "raise a ConnectionFailure when a host can't be resolved" in {
-          mkClient(1)
-            .use { client =>
-              client.status(Request[IO](uri = uri"http://example.invalid/"))
-            }
-            .attempt
-            .unsafeRunSync() must beLike { case Left(e: ConnectionFailure) =>
-            e.getMessage must_== "Error connecting to http://example.invalid using address example.invalid:80 (unresolved: true)"
+      test("Blaze Http1Client raise a ConnectionFailure when a host can't be resolved") {
+        mkClient(1)
+          .use { client =>
+            client.status(Request[IO](uri = uri"http://example.invalid/"))
           }
-        }
-    }
+          .attempt
+          .map {
+            case Left(e: ConnectionFailure) =>
+              e.getMessage === "Error connecting to http://example.invalid using address example.invalid:80 (unresolved: true)"
+            case _ => false
+          }
+          .assertEquals(true)
+      }
   }
 }

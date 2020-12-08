@@ -18,18 +18,18 @@ package org.http4s
 package server
 package jetty
 
-import cats.effect.{IO, Timer}
+import cats.effect.{ContextShift, IO, Timer}
 import cats.syntax.all._
 import java.net.{HttpURLConnection, URL}
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import org.http4s.dsl.io._
-import org.http4s.testing.Http4sLegacyMatchersIO
-import org.specs2.concurrent.ExecutionEnv
 import scala.concurrent.duration._
 import scala.io.Source
 
-class JettyServerSpec(implicit ee: ExecutionEnv) extends Http4sSpec with Http4sLegacyMatchersIO {
+class JettyServerSuite extends Http4sSuite {
+  implicit val contextShift: ContextShift[IO] = Http4sSpec.TestContextShift
+
   def builder = JettyBuilder[IO]
 
   val serverR =
@@ -79,33 +79,29 @@ class JettyServerSpec(implicit ee: ExecutionEnv) extends Http4sSpec with Http4sL
         Source.fromInputStream(conn.getInputStream, StandardCharsets.UTF_8.name).getLines().mkString
       })
 
-    "A server" should {
-      "route requests on the service executor" in {
-        get("/thread/routing") must returnValue(startWith("http4s-spec-"))
-      }
-
-      "execute the service task on the service executor" in {
-        get("/thread/effect") must returnValue(startWith("http4s-spec-"))
-      }
-
-      "be able to echo its input" in {
-        val input = """{ "Hello": "world" }"""
-        post("/echo", input) must returnValue(startWith(input))
-      }
+    test("ChannelOptions should A server should route requests on the service executor") {
+      get("/thread/routing").map(_.startsWith("http4s-spec-")).assertEquals(true)
     }
 
-    "Timeout" should {
-      "not fire prematurely" in {
-        get("/slow") must returnValue("slow")
-      }
+    test("ChannelOptions should A server should execute the service task on the service executor") {
+      get("/thread/effect").map(_.startsWith("http4s-spec-")).assertEquals(true)
+    }
 
-      "fire on timeout" in {
-        get("/never").unsafeToFuture() must throwAn[IOException].awaitFor(5.seconds)
-      }
+    test("ChannelOptions should A server should be able to echo its input") {
+      val input = """{ "Hello": "world" }"""
+      post("/echo", input).map(_.startsWith(input)).assertEquals(true)
+    }
 
-      "execute the service task on the service executor" in {
-        get("/thread/effect") must returnValue(startWith("http4s-spec-"))
-      }
+    test("ChannelOptions should Timeoutnot fire prematurely") {
+      get("/slow").assertEquals("slow")
+    }
+
+    test("ChannelOptions should Timeout should fire on timeout") {
+      get("/never").intercept[IOException]
+    }
+
+    test("ChannelOptions should Timeout should execute the service task on the service executor") {
+      get("/thread/effect").map(_.startsWith("http4s-spec-")).assertEquals(true)
     }
   }
 }

@@ -18,20 +18,19 @@ package org.http4s
 package server
 package tomcat
 
-import cats.effect.{IO, Timer}
+import cats.effect.{ContextShift, IO, Timer}
 import cats.syntax.all._
 import java.io.IOException
 import java.net.{HttpURLConnection, URL}
 import java.nio.charset.StandardCharsets
 import org.apache.catalina.webresources.TomcatURLStreamHandlerFactory
 import org.http4s.dsl.io._
-import org.http4s.testing.Http4sLegacyMatchersIO
-import org.specs2.concurrent.ExecutionEnv
 import scala.concurrent.duration._
 import scala.io.Source
 import org.http4s.testing.ErrorReporting._
 
-class TomcatServerSpec(implicit ee: ExecutionEnv) extends Http4sSpec with Http4sLegacyMatchersIO {
+class TomcatServerSuite extends Http4sSuite {
+  implicit val contextShift: ContextShift[IO] = Http4sSpec.TestContextShift
   // Prevents us from loading jar and war URLs, but lets us
   // run Tomcat twice in the same JVM.  This makes me grumpy.
   //
@@ -39,7 +38,7 @@ class TomcatServerSpec(implicit ee: ExecutionEnv) extends Http4sSpec with Http4s
 
   def builder = TomcatBuilder[IO]
 
-  val serverR =
+  val serverR: cats.effect.Resource[IO, Server[IO]] =
     builder
       .bindAny()
       .withAsyncTimeout(3.seconds)
@@ -90,29 +89,27 @@ class TomcatServerSpec(implicit ee: ExecutionEnv) extends Http4sSpec with Http4s
             .mkString
         })
 
-      "A server" should {
-        "route requests on the service executor" in {
-          get("/thread/routing") must returnValue(startWith("http4s-spec-"))
-        }
+      test("server should route requests on the service executor") {
+        get("/thread/routing")
+          .map(_.startsWith("http4s-spec-"))
+          .assertEquals(true)
+      }
 
-        "execute the service task on the service executor" in {
-          get("/thread/effect") must returnValue(startWith("http4s-spec-"))
-        }
+      test("server should execute the service task on the service executor") {
+        get("/thread/effect").map(_.startsWith("http4s-spec-")).assertEquals(true)
+      }
 
-        "be able to echo its input" in {
-          val input = """{ "Hello": "world" }"""
-          post("/echo", input) must returnValue(startWith(input))
-        }
+      test("server should be able to echo its input") {
+        val input = """{ "Hello": "world" }"""
+        post("/echo", input).map(_.startsWith(input)).assertEquals(true)
+      }
 
-        "Timeout" should {
-          "not fire prematurely" in {
-            get("/slow") must returnValue("slow")
-          }
+      test("Timeout should not fire prematurely") {
+        get("/slow").assertEquals("slow")
+      }
 
-          "fire on timeout" in {
-            get("/never").unsafeToFuture() must throwAn[IOException].awaitFor(5.seconds)
-          }
-        }
+      test("Timeout should fire on timeout") {
+        get("/never").intercept[IOException]
       }
     }
   }
