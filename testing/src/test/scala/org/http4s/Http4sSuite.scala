@@ -16,7 +16,7 @@
 
 package org.http4s
 
-import cats.effect.IO
+import cats.effect._
 import cats.syntax.all._
 import fs2._
 import fs2.text.utf8Decode

@@ -282,7 +282,7 @@ object Http4sPlugin extends AutoPlugin {
     // We pull multiple modules from several projects. This is a convenient
     // reference of all the projects we depend on, and hopefully will reduce
     // error-prone merge conflicts in the dependencies below.
-    val argonaut = "6.3.2"
+    val argonaut = "6.3.3"
     val asyncHttpClient = "2.12.1"
     val blaze = "0.14.14"
     val boopickle = "1.3.3"
@@ -307,8 +307,8 @@ object Http4sPlugin extends AutoPlugin {
     val log4s = "1.9.0"
     val mockito = "3.5.15"
     val munit = "0.7.18"
-    val munitCatsEffect = "0.11.0"
-    val munitDiscipline = "1.0.3"
+    val munitCatsEffect = "0.12.0"
+    val munitDiscipline = "1.0.4"
     val netty = "4.1.54.Final"
     val okio = "2.9.0"
     val okhttp = "4.9.0"
@@ -317,8 +317,8 @@ object Http4sPlugin extends AutoPlugin {
     val prometheusClient = "0.9.0"
     val reactiveStreams = "1.0.3"
     val quasiquotes = "2.1.0"
-    val scalacheck = "1.15.1"
-    val scalacheckEffect = "0.6.0"
+    val scalacheck = "1.15.2"
+    val scalacheckEffect = "0.7.0"
     val scalafix = _root_.scalafix.sbt.BuildInfo.scalafixVersion
     val scalatags = "0.9.2"
     val scalaXml = "1.3.0"
