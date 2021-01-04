@@ -114,6 +114,8 @@ lazy val laws = libraryProject("laws")
       catsLaws,
       disciplineCore,
       scalacheck,
+      scalacheckEffectMunit,
+      munitCatsEffect
     ),
   )
   .dependsOn(core)
